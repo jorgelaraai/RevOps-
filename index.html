@@ -123,4 +123,348 @@ body{display:flex;min-height:100vh;background:var(--bg)}
       </div>
     </div>
     <div class="fld"><label>HubSpot Private App Token</label><input type="password" id="fhs" placeholder="pat-na1-xxxx..."/><div class="hint">HubSpot → Configuración → Integraciones → App privadas</div></div>
-    <div class="fld"><label>Slack Incoming Webhook URL</label><input type="password" id="fsl" placeholder="https://hooks.sl
+    <div class="fld"><label>Slack Incoming Webhook URL</label><input type="password" id="fsl" placeholder="https://hooks.slack.com/services/..."/><div class="hint">api.slack.com → Apps → Incoming Webhooks</div></div>
+    <div class="fld"><label>Google Calendar URL iCal</label><input type="text" id="fic" placeholder="https://calendar.google.com/calendar/ical/..."/><div class="hint">Google Calendar → Configuración → Dirección secreta iCal</div></div>
+    <div class="fld"><label>Dominio interno</label><input type="text" id="fdm" value="visma.com" placeholder="visma.com"/><div class="hint">Reuniones solo con este dominio = internas · Con externos = comerciales</div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:18px">
+      <button class="btn" onclick="A.closeCfg()">Cancelar</button>
+      <button class="btn pr" onclick="A.saveCfg()">Guardar y conectar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const NAV=[
+  {id:'dash',l:'Dashboard',p:'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6'},
+  {id:'pipe',l:'Pipeline',p:'M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z'},
+  {id:'risk',l:'Deals en riesgo',p:'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'},
+  {id:'mtgs',l:'Reuniones',p:'M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z'},
+  {id:'sc',l:'Scorecard Excel',p:'M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'},
+  {id:'aut',l:'Automatizaciones',p:'M13 10V3L4 14h7v7l9-11h-7z'},
+  {id:'cfg',l:'Configuración',p:'M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065zM15 12a3 3 0 11-6 0 3 3 0 016 0z'},
+];
+const TITLES={dash:'Dashboard',pipe:'Pipeline',risk:'Deals en riesgo',mtgs:'Reuniones',sc:'Scorecard Excel',aut:'Automatizaciones',cfg:'Configuración'};
+
+const A={
+  S:{pg:'dash',d:{deals:[],owners:[],stages:{},mtgs:[]},log:[],lastRun:null,busy:false,sc:{file:null,wb:null}},
+
+  init(){
+    document.getElementById('snav').innerHTML=NAV.map(n=>`<div class="ni" data-p="${n.id}" onclick="A.go('${n.id}')"><svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="${n.p}"/></svg>${n.l}</div>`).join('');
+    this.go('dash');
+    this.checkConfig();
+  },
+
+  async checkConfig(){
+    try{
+      const r=await fetch('/api/config');
+      const c=await r.json();
+      const d=document.getElementById('cd'),t=document.getElementById('cst');
+      if(c.hasHS&&c.hasSL){d.className='cdot ok';t.textContent='Conectado';}
+      else if(c.hasHS){d.className='cdot part';t.textContent='Parcial';}
+      else{d.className='cdot';t.textContent='Sin configurar';}
+    }catch(e){}
+  },
+
+  go(p){
+    this.S.pg=p;
+    document.querySelectorAll('.ni').forEach(e=>e.classList.toggle('on',e.dataset.p===p));
+    document.getElementById('pt').textContent=TITLES[p]||p;
+    this['pg_'+p]?.();
+  },
+
+  openCfg(){document.getElementById('ovl').style.display='flex';},
+  closeCfg(){document.getElementById('ovl').style.display='none';},
+
+  async saveCfg(){
+    const hs=document.getElementById('fhs').value.trim();
+    const sl=document.getElementById('fsl').value.trim();
+    const ic=document.getElementById('fic').value.trim();
+    const dm=document.getElementById('fdm').value.trim()||'visma.com';
+    // Guardamos en el servidor via env — por ahora guardamos en memoria local y recargamos datos
+    this.S.cfg={hs,sl,ic,dm};
+    this.closeCfg();
+    this.addLog('⚙️','Configuración guardada — recargando datos...');
+    await this.loadAll();
+    this.go(this.S.pg);
+  },
+
+  addLog(ico,msg){
+    const t=new Date().toLocaleString('es-AR',{hour12:false,day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+    this.S.log.unshift({ico,msg,t});
+    if(this.S.log.length>60)this.S.log.pop();
+  },
+
+  html(h){document.getElementById('ct').innerHTML=h;},
+  fmt(n){return Math.round(n).toLocaleString('es-AR');},
+  pct(a,b){return b>0?Math.round(a/b*100):0;},
+
+  async loadAll(){
+    try{
+      const [deals,owners,stages,mtgs]=await Promise.all([
+        fetch('/api/deals').then(r=>r.json()),
+        fetch('/api/owners').then(r=>r.json()),
+        fetch('/api/stages').then(r=>r.json()),
+        fetch('/api/meetings').then(r=>r.json()),
+      ]);
+      this.S.d.deals=Array.isArray(deals)?deals:[];
+      this.S.d.owners=Array.isArray(owners)?owners:[];
+      this.S.d.stages=stages&&typeof stages==='object'?stages:{};
+      this.S.d.mtgs=Array.isArray(mtgs)?mtgs.map(m=>({...m,date:new Date(m.date)})):[];
+      this.addLog('✅','Datos cargados: '+this.S.d.deals.length+' deals');
+    }catch(e){this.addLog('❌','Error cargando datos: '+e.message);}
+  },
+
+  oName(id){const o=this.S.d.owners.find(x=>x.id===id);return o?(`${o.firstName||''} ${o.lastName||''}`.trim()||o.email):'Sin asignar';},
+  sName(id){return this.S.d.stages[id]?.label||id||'—';},
+
+  risk(d){
+    const lm=d.properties.hs_lastmodifieddate;
+    const days=lm?Math.floor((Date.now()-new Date(lm))/86400000):999;
+    const p=parseFloat(d.properties.hs_deal_stage_probability||.5)*100;
+    if(days<=7&&p>=50)return'high';
+    if(days<=21||p>=30)return'med';
+    return'low';
+  },
+
+  classM(m){
+    const dm=(this.S.cfg?.dm||'visma.com');
+    const ext=(m.att||[]).filter(a=>!a.endsWith('@'+dm));
+    const lc=(m.sum||'').toLowerCase();
+    return{comm:ext.length>0,isDemo:lc.includes('demo lara'),sub:lc.includes('demo lara')?'Demo Lara':ext.length>0?'Comercial':'Interna',ext:ext.length};
+  },
+
+  async runAll(){
+    if(this.S.busy)return;
+    this.S.busy=true;
+    const btn=document.getElementById('rb');
+    btn.disabled=true;btn.innerHTML='<span class="spin"></span>Ejecutando...';
+    this.addLog('🚀','Iniciando ejecución completa...');
+    try{
+      await fetch('/api/run',{method:'POST'});
+      await this.loadAll();
+      this.S.lastRun=new Date();
+      document.getElementById('ri').textContent='Último run: '+this.S.lastRun.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'});
+      this.addLog('✅','Ejecución finalizada — reportes enviados a Slack');
+    }catch(e){this.addLog('❌','Error: '+e.message);}
+    this.S.busy=false;btn.disabled=false;btn.textContent='Ejecutar ahora';
+    this.go(this.S.pg);
+  },
+
+  pg_dash(){
+    const deals=this.S.d.deals;
+    const active=deals.filter(d=>d.properties.hs_is_closed!=='true');
+    const won=deals.filter(d=>d.properties.hs_is_closed_won==='true');
+    const arr=active.reduce((s,d)=>s+(parseFloat(d.properties.amount)||0),0);
+    const risky=active.filter(d=>this.risk(d)==='low');
+    const ms=this.S.d.mtgs;const now=new Date();const wa=new Date(now);wa.setDate(now.getDate()-7);
+    const has=deals.length>0;
+    this.html(`
+      <div class="krow">
+        <div class="kpi ac"><div class="klbl">Pipeline ARR</div><div class="kval">${has?'$'+this.fmt(arr):'—'}</div><div class="ksub">${active.length} deals activos</div></div>
+        <div class="kpi"><div class="klbl">Deals won</div><div class="kval">${has?won.length:'—'}</div><div class="ksub">Este trimestre</div></div>
+        <div class="kpi"><div class="klbl">En riesgo</div><div class="kval" style="color:${risky.length>0?'#EF4444':'inherit'}">${has?risky.length:'—'}</div><div class="ksub">Probabilidad baja</div></div>
+        <div class="kpi"><div class="klbl">Reuniones (7d)</div><div class="kval">${ms.length>0?ms.filter(m=>m.date>=wa).length:'—'}</div><div class="ksub">Comerciales + internas</div></div>
+      </div>
+      ${!has?`<div class="card emp"><div class="emp-i">🚀</div><div class="emp-t">Activá RevOps Lara AI</div><div class="emp-s">Configurá tus integraciones y ejecutá el agente para ver el dashboard completo</div><div style="display:flex;gap:8px;justify-content:center"><button class="btn pr" onclick="A.openCfg()">Configurar integraciones</button><button class="btn" onclick="A.loadAll().then(()=>A.go('dash'))">Cargar datos</button></div></div>`:`
+      <div class="g2">
+        <div class="card"><div class="chdr">Pipeline por etapa</div><div id="sbars"></div></div>
+        <div class="card"><div class="chdr">Log de actividad</div>${this.S.log.length?this.S.log.slice(0,7).map(l=>`<div class="li"><span style="font-size:14px">${l.ico}</span><div><div class="li-t">${l.msg}</div><div class="li-s">${l.t}</div></div></div>`).join(''):'<div style="font-size:12px;color:var(--t3)">Sin actividad aún</div>'}</div>
+      </div>
+      <div class="card"><div class="chdr">Deals activos <button class="btn sm" onclick="A.go('pipe')">Ver todos →</button></div>
+        <table class="tbl"><thead><tr><th>Deal</th><th>Etapa</th><th>MRR</th><th>ARR</th><th>AE</th><th>Riesgo</th></tr></thead><tbody>
+        ${active.slice(0,8).map(d=>{const a=parseFloat(d.properties.amount)||0;const rv=this.risk(d);const rb=rv==='high'?'<span class="bdg bg">Alta</span>':rv==='med'?'<span class="bdg by">Media</span>':'<span class="bdg br">Baja</span>';return`<tr><td style="font-weight:600">${d.properties.dealname||'—'}</td><td><span class="bdg bb">${this.sName(d.properties.dealstage)}</span></td><td>$${this.fmt(a/12)}</td><td>$${this.fmt(a)}</td><td style="color:var(--t2)">${this.oName(d.properties.hubspot_owner_id)}</td><td>${rb}</td></tr>`;}).join('')}
+        </tbody></table></div>`}
+    `);
+    if(has){
+      const sm={};active.forEach(d=>{const s=d.properties.dealstage;if(!sm[s])sm[s]={c:0,v:0};sm[s].c++;sm[s].v+=parseFloat(d.properties.amount)||0;});
+      const mx=Math.max(...Object.values(sm).map(v=>v.c),1);
+      const el=document.getElementById('sbars');
+      if(el)el.innerHTML=Object.entries(sm).map(([id,sv])=>`<div style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px"><span style="font-weight:600">${this.sName(id)}</span><span style="color:var(--t3)">${sv.c} deals · $${this.fmt(sv.v/1000)}K ARR</span></div><div class="sbar"><div class="sfill" style="width:${Math.round(sv.c/mx*100)}%"></div></div></div>`).join('');
+    }
+  },
+
+  pg_pipe(){
+    const active=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true');
+    const byO={};active.forEach(d=>{const o=d.properties.hubspot_owner_id||'x';if(!byO[o])byO[o]=[];byO[o].push(d);});
+    this.html(`
+      <div style="display:flex;align-items:center;margin-bottom:13px">
+        <span style="font-size:12px;color:var(--t2)">${active.length} deals activos</span>
+        <button class="btn sm" style="margin-left:auto" onclick="A.loadAll().then(()=>A.pg_pipe())">↻ Actualizar</button>
+      </div>
+      ${!active.length?`<div class="card emp"><div class="emp-i">📊</div><div class="emp-t">Sin datos de pipeline</div><div class="emp-s">Configurá HubSpot y ejecutá el agente</div><button class="btn pr" onclick="A.runAll()">Ejecutar ahora</button></div>`
+      :Object.entries(byO).map(([oid,ds])=>{
+        const n=this.oName(oid);const tot=ds.reduce((s,d)=>s+(parseFloat(d.properties.amount)||0),0);
+        const ini=n.split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+        return`<div class="card" style="margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="width:33px;height:33px;border-radius:50%;background:#DBEAFE;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--lb)">${ini}</div>
+            <div><div style="font-size:13px;font-weight:700">${n}</div><div style="font-size:11px;color:var(--t3)">${ds.length} deals · $${this.fmt(tot)} ARR</div></div>
+          </div>
+          <table class="tbl"><thead><tr><th>Deal</th><th>MRR</th><th>ARR</th><th>Etapa</th><th>Cierre est.</th><th>Riesgo</th></tr></thead><tbody>
+          ${ds.map(d=>{const a=parseFloat(d.properties.amount)||0;const cl=d.properties.closedate?new Date(d.properties.closedate).toLocaleDateString('es-AR'):'—';const rv=this.risk(d);const rb=rv==='high'?'<span class="bdg bg">Alta</span>':rv==='med'?'<span class="bdg by">Media</span>':'<span class="bdg br">Baja</span>';return`<tr><td style="font-weight:600">${d.properties.dealname||'—'}</td><td>$${this.fmt(a/12)}</td><td>$${this.fmt(a)}</td><td><span class="bdg bb">${this.sName(d.properties.dealstage)}</span></td><td style="color:var(--t3)">${cl}</td><td>${rb}</td></tr>`;}).join('')}
+          </tbody></table></div>`;
+      }).join('')}
+    `);
+  },
+
+  pg_risk(){
+    const active=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true');
+    const grp={high:active.filter(d=>this.risk(d)==='high'),med:active.filter(d=>this.risk(d)==='med'),low:active.filter(d=>this.risk(d)==='low')};
+    const tbl=ds=>ds.length?`<table class="tbl"><thead><tr><th>Deal</th><th>ARR</th><th>AE</th><th>Etapa</th><th>Sin actividad</th></tr></thead><tbody>${ds.map(d=>{const a=parseFloat(d.properties.amount)||0;const lm=d.properties.hs_lastmodifieddate;const days=lm?Math.floor((Date.now()-new Date(lm))/86400000):null;return`<tr><td style="font-weight:600">${d.properties.dealname||'—'}</td><td>$${this.fmt(a)}</td><td style="color:var(--t2)">${this.oName(d.properties.hubspot_owner_id)}</td><td><span class="bdg bb">${this.sName(d.properties.dealstage)}</span></td><td style="color:var(--t3)">${days!=null?days+' días':'—'}</td></tr>`;}).join('')}</tbody></table>`:'';
+    this.html(`
+      ${!active.length?`<div class="card emp"><div class="emp-i">⚠️</div><div class="emp-t">Sin datos</div><div class="emp-s">Ejecutá el agente primero</div><button class="btn pr" onclick="A.runAll()">Ejecutar</button></div>`:''}
+      ${grp.high.length?`<div class="card rl rh" style="margin-bottom:11px"><div class="chdr"><span class="bdg bg">Probabilidad alta — sin riesgo</span><span style="font-size:11px;color:var(--t3)">${grp.high.length} deals</span></div>${tbl(grp.high)}</div>`:''}
+      ${grp.med.length?`<div class="card rl rm" style="margin-bottom:11px"><div class="chdr"><span class="bdg by">Probabilidad media — atención</span><span style="font-size:11px;color:var(--t3)">${grp.med.length} deals</span></div>${tbl(grp.med)}</div>`:''}
+      ${grp.low.length?`<div class="card rl rr" style="margin-bottom:11px"><div class="chdr"><span class="bdg br">Probabilidad baja — en riesgo</span><span style="font-size:11px;color:var(--t3)">${grp.low.length} deals</span></div>${tbl(grp.low)}</div>`:''}
+      ${active.length?`<div style="display:flex;gap:8px;margin-top:4px"><button class="btn pr" onclick="A.sendRiskSlack()">Enviar alerta a Slack</button><button class="btn" onclick="A.aiRisk()">Analizar con IA ✨</button></div><div id="air"></div>`:''}
+    `);
+  },
+
+  async sendRiskSlack(){
+    this.addLog('💬','Enviando alerta de riesgo a Slack...');
+    await fetch('/api/run',{method:'POST'});
+    this.addLog('✅','Alerta enviada');
+  },
+
+  async aiRisk(){
+    const el=document.getElementById('air');if(!el)return;
+    const risky=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true'&&this.risk(d)==='low');
+    el.innerHTML=`<div class="aib"><span style="font-size:11px;font-weight:700;color:#185FA5">⏳ Analizando con IA...</span></div>`;
+    try{
+      const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1000,messages:[{role:'user',content:`Sos experto en RevOps y ventas B2B SaaS. Analizá estos ${risky.length} deals en riesgo y dá recomendaciones concretas en español (5 bullets máximo, muy accionables):\n${risky.map(d=>`- ${d.properties.dealname}: $${this.fmt(parseFloat(d.properties.amount)||0)} ARR, etapa: ${this.sName(d.properties.dealstage)}, AE: ${this.oName(d.properties.hubspot_owner_id)}`).join('\n')}`}]})});
+      const t=(await r.json()).content?.[0]?.text||'Sin respuesta';
+      el.innerHTML=`<div class="aib"><div style="font-size:11px;font-weight:700;color:#185FA5;margin-bottom:6px">✨ Análisis IA</div><div style="white-space:pre-line;font-size:12px">${t}</div></div>`;
+    }catch(e){el.innerHTML=`<div class="aib" style="background:#FEE2E2;border-color:#FECACA;font-size:12px">❌ Error: ${e.message}</div>`;}
+  },
+
+  pg_mtgs(){
+    const ms=this.S.d.mtgs;const now=new Date();
+    const wa=new Date(now);wa.setDate(now.getDate()-7);
+    const ma=new Date(now);ma.setMonth(now.getMonth()-1);
+    const wk=ms.filter(m=>m.date>=wa);const mo=ms.filter(m=>m.date>=ma);
+    const st=list=>{const c=list.filter(m=>this.classM(m).comm);const i=list.filter(m=>!this.classM(m).comm);const d=list.filter(m=>this.classM(m).isDemo);return{c,i,d,tot:list.length};};
+    const ws=st(wk);const ms2=st(mo);
+    this.html(`
+      ${!ms.length?`<div class="card emp"><div class="emp-i">📅</div><div class="emp-t">Sin datos de Calendar</div><div class="emp-s">Configurá la URL iCal y ejecutá el agente</div><button class="btn pr" onclick="A.openCfg()">Configurar</button></div>`:`
+      <div class="krow" style="margin-bottom:13px">
+        <div class="kpi ac"><div class="klbl">Semana · Total</div><div class="kval">${ws.tot}</div><div class="ksub">${ws.c.length} com · ${ws.i.length} int</div></div>
+        <div class="kpi"><div class="klbl">Demos "Demo Lara"</div><div class="kval">${ws.d.length}</div><div class="ksub">${this.pct(ws.d.length,ws.tot)}% del total</div></div>
+        <div class="kpi"><div class="klbl">Mes · Total</div><div class="kval">${ms2.tot}</div><div class="ksub">${ms2.c.length} com · ${ms2.i.length} int</div></div>
+        <div class="kpi"><div class="klbl">% Comerciales (mes)</div><div class="kval">${this.pct(ms2.c.length,ms2.tot)}%</div><div class="ksub">vs ${this.pct(ms2.i.length,ms2.tot)}% internas</div></div>
+      </div>
+      <div class="card"><div class="chdr">Reuniones de la semana</div>
+        <table class="tbl"><thead><tr><th>Título</th><th>Fecha</th><th>Tipo</th><th>Subtipo</th><th>Externos</th></tr></thead><tbody>
+        ${wk.map(m=>{const c=this.classM(m);return`<tr><td style="font-weight:600">${m.sum}</td><td style="color:var(--t3)">${new Date(m.date).toLocaleDateString('es-AR')}</td><td><span class="bdg ${c.comm?'bb':'bgy'}">${c.comm?'Comercial':'Interna'}</span></td><td><span class="bdg ${c.isDemo?'btl':'bpu'}">${c.sub}</span></td><td style="color:var(--t3)">${c.ext}</td></tr>`;}).join('')}
+        </tbody></table></div>`}
+    `);
+  },
+
+  pg_sc(){
+    const s=this.S.sc;
+    const demos=this.S.d.mtgs.filter(m=>this.classM(m).isDemo).length;
+    const active=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true').length;
+    const won=this.S.d.deals.filter(d=>d.properties.hs_is_closed_won==='true').length;
+    const risky=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true'&&this.risk(d)==='low').length;
+    this.html(`
+      <div class="g2">
+        <div class="card">
+          <div class="chdr">1. Subí tu scorecard</div>
+          <div onclick="document.getElementById('scf').click()" style="border:1.5px dashed rgba(0,0,0,.12);border-radius:8px;padding:26px;text-align:center;cursor:pointer;transition:background .12s" onmouseover="this.style.background='#F8FAFC'" onmouseout="this.style.background='transparent'">
+            <div style="font-size:28px;margin-bottom:8px">📊</div>
+            <div style="font-size:12px;font-weight:700">${s.file?s.file.name:'Subir archivo Excel'}</div>
+            <div style="font-size:11px;color:var(--t3);margin-top:3px">.xlsx · diseño y fórmulas intactos</div>
+          </div>
+          <input type="file" id="scf" accept=".xlsx,.xls" style="display:none" onchange="A.loadSC(this.files[0])">
+          ${s.wb?`<div style="background:#EAF3DE;border-radius:7px;padding:9px 11px;font-size:11px;color:#3B6D11;font-weight:700;margin-top:10px">✅ Mapeado: ${s.wb.SheetNames.length} hoja(s)</div>`:''}
+          <button class="btn pr" style="margin-top:10px;width:100%" onclick="A.fillSC()" ${!s.file?'disabled':''}>Completar y descargar</button>
+        </div>
+        <div class="card">
+          <div class="chdr">2. Datos que se completarán</div>
+          ${[{ico:'🎯',l:'Demos "Demo Lara"',v:demos||'—',src:'Google Calendar'},{ico:'📊',l:'Deals activos',v:active||'—',src:'HubSpot'},{ico:'✅',l:'Deals won',v:won||'—',src:'HubSpot'},{ico:'⚠️',l:'Deals en riesgo',v:risky||'—',src:'HubSpot'}].map(i=>`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--bdr)"><span style="font-size:17px">${i.ico}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${i.l}</div><div style="font-size:10px;color:var(--t3)">${i.src}</div></div><div style="font-size:18px;font-weight:700;color:var(--lb)">${i.v}</div></div>`).join('')}
+        </div>
+      </div>
+    `);
+  },
+
+  async loadSC(file){
+    if(!file)return;
+    this.S.sc.file=file;
+    const wb=XLSX.read(await file.arrayBuffer());
+    this.S.sc.wb=wb;
+    this.addLog('📊','Scorecard cargado: '+file.name);
+    this.pg_sc();
+  },
+
+  async fillSC(){
+    const {wb}=this.S.sc;if(!wb)return;
+    const demos=this.S.d.mtgs.filter(m=>this.classM(m).isDemo).length;
+    const active=this.S.d.deals.filter(d=>d.properties.hs_is_closed!=='true').length;
+    const won=this.S.d.deals.filter(d=>d.properties.hs_is_closed_won==='true').length;
+    const fills={'demo lara':demos,'primeras reuniones':demos,'deals activos':active,'deals won':won};
+    wb.SheetNames.forEach(sn=>{
+      const ws=wb.Sheets[sn];const rng=XLSX.utils.decode_range(ws['!ref']||'A1');
+      for(let r=rng.s.r;r<=rng.e.r;r++)for(let c=rng.s.c;c<=rng.e.c;c++){
+        const addr=XLSX.utils.encode_cell({r,c});const cell=ws[addr];
+        if(cell&&typeof cell.v==='string'){
+          const lc=cell.v.toLowerCase();
+          for(const[k,v]of Object.entries(fills))if(lc.includes(k)){const na=XLSX.utils.encode_cell({r,c:c+1});ws[na]={v,t:'n'};}
+        }
+      }
+    });
+    XLSX.writeFile(wb,'scorecard_lara_'+new Date().toISOString().slice(0,10)+'.xlsx');
+    this.addLog('📥','Scorecard completado y descargado');
+  },
+
+  pg_aut(){
+    const nf=(()=>{const d=new Date();const df=(5-d.getDay()+7)%7||7;d.setDate(d.getDate()+df);d.setHours(23,0,0,0);return d;})();
+    const tasks=[
+      {ico:'🔗',l:'Cargar pipeline HubSpot',d:'Deals por etapa, AEs, SQLs, métricas del período'},
+      {ico:'⚠️',l:'Clasificar deals en riesgo',d:'Scoring probabilidad alta / media / baja'},
+      {ico:'📅',l:'Sincronizar Google Calendar',d:'Reuniones comerciales e internas'},
+      {ico:'🎯',l:'Identificar demos "Demo Lara"',d:'Por título del evento en el calendar'},
+      {ico:'📊',l:'Completar scorecard Excel',d:'Escribir datos y generar el archivo actualizado'},
+      {ico:'💬',l:'Enviar reporte a Slack',d:'Resumen ejecutivo al canal configurado'},
+      {ico:'🚨',l:'Alertar deals en riesgo',d:'Por AE + resumen empresa'},
+      {ico:'🔍',l:'Detectar cuellos de botella',d:'Etapas con deals atascados sin avanzar'},
+    ];
+    this.html(`
+      <div class="g2" style="margin-bottom:13px">
+        <div class="kpi ac"><div class="klbl">Próxima ejecución automática</div><div class="kval" style="font-size:15px">${nf.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'})}</div><div class="ksub">23:00 hs · Buenos Aires (UTC-3)</div></div>
+        <div class="kpi"><div class="klbl">Última ejecución manual</div><div class="kval" style="font-size:15px">${this.S.lastRun?this.S.lastRun.toLocaleString('es-AR',{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}):'Sin ejecutar aún'}</div><div class="ksub">${this.S.log.length} entradas en el log</div></div>
+      </div>
+      <div class="card" style="margin-bottom:13px"><div class="chdr">Tareas del agente</div>
+        ${tasks.map(t=>`<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-bottom:0.5px solid var(--bdr)"><span style="font-size:18px">${t.ico}</span><div style="flex:1"><div style="font-size:12px;font-weight:600">${t.l}</div><div style="font-size:11px;color:var(--t3)">${t.d}</div></div><span class="bdg btl">viernes 23hs</span></div>`).join('')}
+        <div style="margin-top:13px;display:flex;gap:8px"><button class="btn pr" onclick="A.runAll()">Ejecutar todo ahora</button><button class="btn" onclick="A.go('cfg')">Ver configuración</button></div>
+      </div>
+      <div class="card"><div class="chdr">Log de actividad</div>
+        ${!this.S.log.length?'<div style="font-size:12px;color:var(--t3)">Sin actividad todavía — ejecutá el agente para ver el historial</div>':this.S.log.map(l=>`<div class="li"><span style="font-size:14px">${l.ico}</span><div><div class="li-t">${l.msg}</div><div class="li-s">${l.t}</div></div></div>`).join('')}
+      </div>
+    `);
+  },
+
+  pg_cfg(){
+    this.html(`
+      <div style="max-width:520px">
+        <div class="card" style="margin-bottom:13px">
+          <div class="chdr">Integraciones</div>
+          <div style="background:#FFF7ED;border:0.5px solid #FED7AA;border-radius:8px;padding:11px 13px;font-size:11px;color:#9A3412;margin-bottom:14px;line-height:1.6">
+            ⚠️ <strong>Importante:</strong> En la versión deployada en Render, los tokens se configuran como variables de entorno en el panel de Render — no en este formulario. Este formulario es solo para referencia.
+          </div>
+          ${[{l:'HubSpot Private App Token',k:'HS_TOKEN',h:'HubSpot → Configuración → Integraciones → App privadas'},{l:'Slack Incoming Webhook URL',k:'SLACK_WH',h:'api.slack.com → Apps → Incoming Webhooks → Add New'},{l:'Google Calendar URL iCal',k:'ICAL_URL',h:'Google Calendar → Configuración → Dirección secreta iCal'},{l:'Dominio interno',k:'DOMAIN',h:'Reuniones sin este dominio = comerciales (ej: visma.com)'}].map(f=>`<div class="fld"><label>${f.l}</label><div style="background:#F8FAFC;border:0.5px solid var(--bdr);border-radius:7px;padding:7px 10px;font-size:11px;font-family:monospace;color:var(--t2)">${f.k}</div><div class="hint">${f.h}</div></div>`).join('')}
+        </div>
+        <div class="card">
+          <div class="chdr">Programación automática</div>
+          <div style="background:#EDF6FB;border-radius:8px;padding:12px 14px;display:flex;gap:11px;align-items:center"><span style="font-size:20px">⏰</span><div><div style="font-size:12px;font-weight:700">Todos los viernes a las 23:00 hs</div><div style="font-size:11px;color:var(--t2)">Hora de Buenos Aires · UTC-3 · Corriendo en el servidor</div></div></div>
+          <div style="font-size:11px;color:var(--t3);margin-top:10px;line-height:1.7">✅ Al estar deployado en Render, las automatizaciones corren automáticamente todos los viernes aunque nadie tenga el browser abierto.</div>
+        </div>
+      </div>
+    `);
+  },
+};
+
+A.init();
+// Cargar datos al iniciar
+A.loadAll();
+</script>
+</body>
+</html>
