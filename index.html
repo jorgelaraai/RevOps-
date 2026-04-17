@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RevOps Lara AI</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--lb:#1A6DB5;--lbd:#124E88;--tl:#5CC8D4;--tll:#C5ECF0;--bg:#EDF2F7;--card:#fff;--text:#1A2535;--t2:#5A6A80;--t3:#9AA5B4;--bdr:rgba(0,0,0,0.07);--rad:10px;--sw:200px}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif}
+body{display:flex;min-height:100vh;background:var(--bg)}
+.sb{width:var(--sw);background:var(--lb);display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100vh}
+.main{flex:1;display:flex;flex-direction:column;margin-left:var(--sw);min-height:100vh}
+.sb-logo{padding:16px 14px;border-bottom:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;gap:10px}
+.sb-lbox{width:32px;height:32px;background:#fff;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.sb-tt{font-size:13px;font-weight:700;color:#fff;letter-spacing:2px}
+.sb-ss{font-size:9px;color:rgba(255,255,255,0.4);margin-top:1px}
+.sb-lbl{font-size:9px;color:rgba(255,255,255,0.3);letter-spacing:.8px;padding:10px 14px 3px;text-transform:uppercase;font-weight:700}
+.ni{display:flex;align-items:center;gap:9px;padding:8px 14px;cursor:pointer;color:rgba(255,255,255,0.6);font-size:12.5px;border-left:2px solid transparent;transition:all .12s;user-select:none}
+.ni:hover{background:rgba(255,255,255,0.08);color:#fff}
+.ni.on{background:rgba(255,255,255,0.13);color:#fff;border-left-color:var(--tl)}
+.ni svg{width:15px;height:15px;flex-shrink:0}
+.sb-ft{margin-top:auto;padding:12px 14px;border-top:1px solid rgba(255,255,255,0.1)}
+.cdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:#9AA5B4;margin-right:6px;vertical-align:middle}
+.cdot.ok{background:#4ADE80}.cdot.part{background:#FCD34D}
+.ctxt{font-size:11px;color:rgba(255,255,255,0.5)}
+.nr{font-size:10px;color:rgba(255,255,255,0.25);margin-top:5px;line-height:1.5}
+.topbar{display:flex;align-items:center;gap:10px;padding:12px 20px;background:var(--card);border-bottom:0.5px solid var(--bdr);position:sticky;top:0;z-index:10}
+.ptitle{font-size:15px;font-weight:700;color:var(--text)}
+.tbr{margin-left:auto;display:flex;gap:7px;align-items:center}
+.ri{font-size:11px;color:var(--t3)}
+.btn{font-size:12px;padding:7px 13px;border-radius:7px;cursor:pointer;border:0.5px solid var(--bdr);background:transparent;color:var(--t2);transition:all .12s;font-weight:500;outline:none}
+.btn:hover{background:var(--bg)}.btn:active{transform:scale(.98)}.btn:disabled{opacity:.4;cursor:default;transform:none}
+.btn.pr{background:var(--lb);color:#fff;border-color:var(--lb)}.btn.pr:hover{background:var(--lbd)}
+.btn.sm{font-size:11px;padding:4px 9px}
+.content{flex:1;padding:18px 20px;background:var(--bg)}
+.krow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border:0.5px solid var(--bdr);border-radius:var(--rad);padding:14px 15px;position:relative;overflow:hidden}
+.kpi.ac::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--tl)}
+.klbl{font-size:11px;color:var(--t2);margin-bottom:5px;font-weight:600}
+.kval{font-size:22px;font-weight:700;color:var(--text);line-height:1}
+.ksub{font-size:11px;color:var(--t3);margin-top:4px}
+.card{background:var(--card);border:0.5px solid var(--bdr);border-radius:var(--rad);padding:15px}
+.chdr{font-size:13px;font-weight:700;color:var(--text);margin-bottom:12px;display:flex;align-items:center;justify-content:space-between}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}
+.tbl th{text-align:left;font-size:10px;color:var(--t2);font-weight:700;padding:6px 10px;border-bottom:0.5px solid var(--bdr);text-transform:uppercase;letter-spacing:.4px}
+.tbl td{padding:8px 10px;border-bottom:0.5px solid var(--bdr);color:var(--text);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl tr:hover td{background:#F8FAFC}
+.bdg{font-size:10px;padding:2px 7px;border-radius:20px;font-weight:700;display:inline-block}
+.bg{background:#DCFCE7;color:#166534}.by{background:#FEF9C3;color:#854D0E}.br{background:#FEE2E2;color:#991B1B}
+.bb{background:#DBEAFE;color:#1E40AF}.bgy{background:#F1F5F9;color:#475569}.btl{background:var(--tll);color:var(--lbd)}
+.bpu{background:#EDE9FE;color:#5B21B6}
+.sbar{height:6px;border-radius:3px;background:#E2E8F0;overflow:hidden;margin-top:4px}
+.sfill{height:100%;border-radius:3px;background:var(--lb)}
+.rl{border-left:3px solid #E2E8F0;padding-left:12px}
+.rl.rh{border-left-color:#22C55E}.rl.rm{border-left-color:#EAB308}.rl.rr{border-left-color:#EF4444}
+.li{display:flex;gap:9px;padding:7px 0;border-bottom:0.5px solid var(--bdr);align-items:flex-start}
+.li:last-child{border-bottom:none}
+.li-t{font-size:12px;color:var(--text);line-height:1.4}
+.li-s{font-size:10px;color:var(--t3);margin-top:2px}
+.ovl{position:fixed;inset:0;background:rgba(10,25,50,.6);display:flex;align-items:center;justify-content:center;z-index:200}
+.modal{background:var(--card);border-radius:14px;padding:26px;width:440px;max-width:95%;max-height:90vh;overflow-y:auto}
+.fld{margin-bottom:13px}
+.fld label{font-size:11px;color:var(--t2);font-weight:700;display:block;margin-bottom:5px}
+.fld input{width:100%;padding:8px 10px;border:0.5px solid rgba(0,0,0,.15);border-radius:7px;font-size:12px;color:var(--text);outline:none}
+.fld input:focus{border-color:var(--lb)}
+.hint{font-size:10px;color:var(--t3);margin-top:3px;line-height:1.5}
+.emp{text-align:center;padding:50px 20px}
+.emp-i{font-size:36px;margin-bottom:12px}
+.emp-t{font-size:14px;font-weight:700;color:var(--text);margin-bottom:6px}
+.emp-s{font-size:12px;color:var(--t2);margin-bottom:18px;line-height:1.6}
+.spin{width:13px;height:13px;border:2px solid var(--tll);border-top-color:var(--lb);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:5px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.aib{background:#EDF6FB;border:0.5px solid #B8DFF0;border-radius:var(--rad);padding:13px 15px;font-size:12px;color:var(--text);line-height:1.7;margin-top:11px}
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-thumb{background:rgba(0,0,0,.12);border-radius:4px}
+</style>
+</head>
+<body>
+
+<div class="sb">
+  <div class="sb-logo">
+    <div class="sb-lbox">
+      <svg width="18" height="12" viewBox="0 0 24 16" fill="none">
+        <path d="M2 8h20M12 2l10 6-10 6" stroke="#1A6DB5" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <div><div class="sb-tt">LARA</div><div class="sb-ss">RevOps AI</div></div>
+  </div>
+  <div style="padding:6px 0">
+    <div class="sb-lbl">Principal</div>
+    <div id="snav"></div>
+  </div>
+  <div class="sb-ft">
+    <div><span class="cdot" id="cd"></span><span class="ctxt" id="cst">Sin configurar</span></div>
+    <div class="nr">Próx. auto: viernes 23hs ARG</div>
+  </div>
+</div>
+
+<div class="main">
+  <div class="topbar">
+    <div class="ptitle" id="pt">Dashboard</div>
+    <div class="tbr">
+      <div class="ri" id="ri"></div>
+      <button class="btn sm" onclick="A.openCfg()">Configurar</button>
+      <button class="btn pr" id="rb" onclick="A.runAll()">Ejecutar ahora</button>
+    </div>
+  </div>
+  <div class="content" id="ct"></div>
+</div>
+
+<div class="ovl" id="ovl" style="display:none">
+  <div class="modal">
+    <div style="display:flex;align-items:center;gap:11px;margin-bottom:20px">
+      <div style="width:35px;height:35px;background:var(--lb);border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      </div>
+      <div>
+        <div style="font-size:14px;font-weight:700">Configurar RevOps Lara AI</div>
+        <div style="font-size:11px;color:var(--t2)">Conectá tus integraciones para activar el agente</div>
+      </div>
+    </div>
+    <div class="fld"><label>HubSpot Private App Token</label><input type="password" id="fhs" placeholder="pat-na1-xxxx..."/><div class="hint">HubSpot → Configuración → Integraciones → App privadas</div></div>
+    <div class="fld"><label>Slack Incoming Webhook URL</label><input type="password" id="fsl" placeholder="https://hooks.sl
